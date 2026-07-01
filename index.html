@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI関連株 監視ダッシュボード</title>
+<style>
+  :root{
+    --bg:#0e1524; --panel:#16203a; --panel2:#1b273f; --line:#28344f;
+    --txt:#e8eef7; --sub:#93a2bd; --accent:#4da3ff;
+    --up:#26c281; --down:#ff5d5d; --flat:#8fa0bd; --warn:#ffb020;
+  }
+  *{box-sizing:border-box}
+  body{font-family:"Meiryo","Hiragino Kaku Gothic ProN",system-ui,sans-serif;background:var(--bg);color:var(--txt);margin:0;padding:0 12px 48px;}
+  .wrap{max-width:1080px;margin:0 auto;}
+  header{text-align:center;padding:20px 0 6px;}
+  h1{font-size:22px;margin:0;letter-spacing:.5px;}
+  h1 .dot{color:var(--up);}
+  .date{color:var(--sub);font-size:12px;margin-top:6px;}
+  .fx{color:var(--sub);font-size:11px;margin-top:2px;}
+  .disc{background:#2a1e12;border:1px solid #55401f;color:#ffd79a;font-size:12px;line-height:1.7;border-radius:10px;padding:10px 13px;margin:12px 0;}
+  .disc b{color:#ffcf7a;}
+
+  .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0;}
+  @media(max-width:640px){.summary{grid-template-columns:1fr;}}
+  .sbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 12px;}
+  .sbox h4{margin:0 0 7px;font-size:11px;color:var(--sub);font-weight:600;letter-spacing:.5px;}
+  .sbox .item{display:flex;justify-content:space-between;font-size:12.5px;margin:3px 0;gap:6px;}
+  .sbox .item span:first-child{color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:14px 0 4px;}
+  .controls label{font-size:12px;color:var(--sub);}
+  select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px;}
+  .nav{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px;}
+  .chip{background:var(--panel2);border:1px solid var(--line);color:var(--sub);border-radius:20px;padding:5px 11px;font-size:11.5px;text-decoration:none;}
+  .chip:hover{color:var(--txt);border-color:var(--accent);}
+
+  h2{font-size:16px;margin:26px 0 3px;color:#cfe0f7;border-left:4px solid var(--accent);padding-left:9px;}
+  .tnote{color:var(--sub);font-size:12px;margin:0 0 10px 13px;}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;position:relative;overflow:hidden;}
+  .card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .nm{font-size:15px;font-weight:700;}
+  .nm a{color:var(--txt);text-decoration:none;}
+  .tk{color:var(--sub);font-size:11px;margin-top:2px;}
+  .chgbadge{font-size:13px;font-weight:700;border-radius:8px;padding:3px 9px;white-space:nowrap;}
+  .pricerow{display:flex;align-items:baseline;gap:8px;margin:8px 0 2px;flex-wrap:wrap;}
+  .price{font-size:26px;font-weight:800;letter-spacing:.3px;}
+  .jpy{color:var(--sub);font-size:12px;}
+  .spark{display:block;width:100%;height:34px;margin:6px 0 2px;}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;}
+  .st{background:var(--panel2);border-radius:8px;padding:6px 4px;text-align:center;}
+  .st .k{font-size:10px;color:var(--sub);}
+  .st .v{font-size:13px;font-weight:700;margin-top:2px;}
+  .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;}
+  .tag{font-size:10.5px;border-radius:6px;padding:3px 7px;background:var(--panel2);color:var(--sub);border:1px solid var(--line);}
+  .links{margin-top:9px;display:flex;flex-wrap:wrap;gap:6px;}
+  .links a{font-size:11px;color:var(--accent);text-decoration:none;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px 8px;}
+  .news{margin-top:8px;border-top:1px dashed var(--line);padding-top:7px;}
+  .news a{display:block;font-size:11.5px;color:#bcd0ee;text-decoration:none;line-height:1.5;margin:3px 0;}
+  .news a:before{content:"📰 ";}
+  .foot{color:var(--sub);font-size:11px;line-height:1.7;margin-top:26px;border-top:1px solid var(--line);padding-top:14px;}
+  .err{color:var(--down);}
+</style>
+</head>
+<body><div class="wrap">
+  <header>
+    <h1><span class="dot">●</span> AI関連株 監視ダッシュボード</h1>
+    <div class="date" id="updated">読み込み中 ...</div>
+    <div class="fx" id="fx"></div>
+  </header>
+
+  <div class="disc">
+    ⚠ <b>これは「注目テーマ銘柄の監視ツール」で、値上がりを保証するものではありません。</b>
+    ここに並ぶのは電力・半導体の“その先”でAIを支える会社群ですが、<b>多くは既に大きく上昇済み</b>で、
+    値動きが荒く急落もあります。将来上がるかは誰にも分かりません。<b>一点集中せず・余裕資金で・積立ペースを守る</b>のが基本です。
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="controls">
+    <label>並び替え：</label>
+    <select id="sort" onchange="render()">
+      <option value="chg1d">前日比が大きい順</option>
+      <option value="chg1y">1年の上昇が大きい順</option>
+      <option value="relvol">出来高が急増している順</option>
+      <option value="drawdown">高値から下げている順</option>
+      <option value="name">名前順</option>
+    </select>
+  </div>
+  <div class="nav" id="nav"></div>
+
+  <div id="body"><p>データを読み込んでいます ...</p></div>
+
+  <p class="foot" id="foot">
+    ※ 情報提供であり投資助言・推奨ではありません。投資は自己責任で。価格は yfinance 由来で数分〜1日遅れの場合があります。<br>
+    ※ 円換算(≈¥)は取得時の為替レートによる概算です。米国株=USD / 日本株=JPY / 韓国株=KRW。<br>
+    ※ 「1年高値からの下落率」は買い時の“参考”であって、下げている＝買いではありません（悪材料で下げている場合もあります）。
+  </p>
+</div>
+
+<script src="data.js"></script>
+<script>
+let DATA=null;
+
+function fmtPrice(cur,v){
+  if(v==null) return "—";
+  if(cur==="USD") return "$"+v.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(cur==="KRW") return "₩"+Math.round(v).toLocaleString("en-US");
+  return "¥"+Math.round(v).toLocaleString("ja-JP");
+}
+function jpyStr(v){ return v==null?"":"≈¥"+Math.round(v).toLocaleString("ja-JP"); }
+function pct(x){ return x==null?"—":(x>0?"+":"")+x+"%"; }
+function chgColor(x){ return x==null?"var(--flat)":(x>0?"var(--up)":(x<0?"var(--down)":"var(--flat)")); }
+function chgBg(x){ if(x==null)return"#2a3550"; return x>0?"rgba(38,194,129,.16)":(x<0?"rgba(255,93,93,.16)":"#2a3550"); }
+
+function ddTag(dd){
+  // 成長株向け: 下げていても「安い」とは限らない前提でラベル
+  if(dd>=-5)  return ["高値圏","var(--warn)"];
+  if(dd>=-15) return ["通常","var(--sub)"];
+  if(dd>=-30) return ["調整中","var(--accent)"];
+  return ["大幅調整","var(--up)"];
+}
+
+function sparkSVG(vals){
+  if(!vals||vals.length<2) return "";
+  const w=240,h=34,pad=2;
+  const min=Math.min(...vals),max=Math.max(...vals),rng=(max-min)||1;
+  const X=i=>pad+(i/(vals.length-1))*(w-2*pad);
+  const Y=v=>pad+(1-(v-min)/rng)*(h-2*pad);
+  const pts=vals.map((v,i)=>X(i).toFixed(1)+","+Y(v).toFixed(1)).join(" ");
+  const up=vals[vals.length-1]>=vals[0];
+  const col=up?"#26c281":"#ff5d5d";
+  const base=Y(vals[0]).toFixed(1);
+  const area=`${pad},${(h-pad)} ${pts} ${(w-pad)},${(h-pad)}`;
+  const lx=X(vals.length-1).toFixed(1), ly=Y(vals[vals.length-1]).toFixed(1);
+  return `<svg class="spark" width="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <polyline points="${area}" fill="${up?'rgba(38,194,129,.10)':'rgba(255,93,93,.10)'}" stroke="none"/>
+    <line x1="${pad}" y1="${base}" x2="${w-pad}" y2="${base}" stroke="#40507099" stroke-dasharray="3 3" stroke-width="1"/>
+    <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.8" stroke-linejoin="round"/>
+    <circle cx="${lx}" cy="${ly}" r="2.6" fill="${col}"/>
+  </svg>`;
+}
+
+function yahooUrl(r){ return r.cur==="JPY" ? "https://finance.yahoo.co.jp/quote/"+r.yf : "https://finance.yahoo.com/quote/"+r.yf; }
+function newsUrl(r){ return "https://news.google.com/search?q="+encodeURIComponent(r.name+" 株価")+"&hl=ja&gl=JP&ceid=JP:ja"; }
+
+function card(r){
+  const [ddl,ddc]=ddTag(r.drawdown);
+  const stats=[
+    ["5日",r.chg5d],["1ヶ月",r.chg1mo],["1年",r.chg1y],
+  ].map(([k,v])=>`<div class="st"><div class="k">${k}</div><div class="v" style="color:${chgColor(v)}">${pct(v)}</div></div>`).join("");
+  const tags=[
+    `<span class="tag" style="color:${ddc}">高値から ${r.drawdown}%・${ddl}</span>`,
+    (r.relvol!=null?`<span class="tag">出来高 ${r.relvol}倍</span>`:""),
+    (r.yield_pct!=null&&r.yield_pct>0?`<span class="tag">配当 ${r.yield_pct}%</span>`:""),
+    (r.mcap_jpy!=null?`<span class="tag">時価総額 約${r.mcap_jpy}兆円</span>`:""),
+  ].join("");
+  const news=(r.news&&r.news.length)
+    ? `<div class="news">${r.news.map(n=>`<a href="${n.u}" target="_blank" rel="noopener">${n.t}</a>`).join("")}</div>`
+    : "";
+  return `<div class="card">
+    <div class="top">
+      <div><div class="nm"><a href="${yahooUrl(r)}" target="_blank" rel="noopener">${r.name}</a></div>
+        <div class="tk">${r.code}・${r.country||r.theme}</div></div>
+      <div class="chgbadge" style="color:${chgColor(r.chg1d)};background:${chgBg(r.chg1d)}">前日比 ${pct(r.chg1d)}</div>
+    </div>
+    <div class="pricerow"><span class="price">${fmtPrice(r.cur,r.price)}</span>
+      <span class="jpy">${r.jpy!=null?jpyStr(r.jpy):""}</span></div>
+    ${sparkSVG(r.spark)}
+    <div class="stats">${stats}</div>
+    <div class="meta">${tags}</div>
+    <div class="links">
+      <a href="${yahooUrl(r)}" target="_blank" rel="noopener">📈 詳細チャート</a>
+      <a href="${newsUrl(r)}" target="_blank" rel="noopener">🔍 ニュース検索</a>
+    </div>
+    ${news}
+  </div>`;
+}
+
+function allRows(){ return DATA.groups.flatMap(g=>g.rows); }
+
+function summary(){
+  const rows=allRows();
+  const box=(title,arr,fmt)=>`<div class="sbox"><h4>${title}</h4>${
+    arr.map(r=>`<div class="item"><span>${r.name}</span><span style="color:${fmt.color(r)};font-weight:700">${fmt.val(r)}</span></div>`).join("")}</div>`;
+  const up=[...rows].filter(r=>r.chg1d!=null).sort((a,b)=>b.chg1d-a.chg1d).slice(0,3);
+  const dn=[...rows].filter(r=>r.chg1d!=null).sort((a,b)=>a.chg1d-b.chg1d).slice(0,3);
+  const vol=[...rows].filter(r=>r.relvol!=null).sort((a,b)=>b.relvol-a.relvol).slice(0,3);
+  document.getElementById("summary").innerHTML=
+    box("本日ぐんぐん↑",up,{color:r=>chgColor(r.chg1d),val:r=>pct(r.chg1d)})+
+    box("本日さえない↓",dn,{color:r=>chgColor(r.chg1d),val:r=>pct(r.chg1d)})+
+    box("出来高が急増",vol,{color:()=>"var(--accent)",val:r=>r.relvol+"倍"});
+}
+
+function render(){
+  const key=document.getElementById("sort").value;
+  const cmp=(a,b)=>{
+    if(key==="name") return a.name.localeCompare(b.name,"ja");
+    const av=a[key]==null?-1e9:a[key], bv=b[key]==null?-1e9:b[key];
+    return (key==="drawdown") ? (av-bv) : (bv-av); // drawdown は下げている順=昇順
+  };
+  let html="";
+  for(const g of DATA.groups){
+    const rows=[...g.rows].sort(cmp);
+    html+=`<h2 id="t-${g.theme}">${g.theme} <span style="font-size:12px;color:var(--sub);font-weight:400">(${rows.length})</span></h2>
+      <p class="tnote">${g.note}</p><div class="grid">${rows.map(card).join("")}</div>`;
+  }
+  document.getElementById("body").innerHTML=html;
+}
+
+function buildNav(){
+  document.getElementById("nav").innerHTML=DATA.groups
+    .map(g=>`<a class="chip" href="#t-${g.theme}">${g.theme}</a>`).join("");
+}
+
+async function load(){
+  try{
+    if(location.protocol==="file:") throw new Error("file");
+    const res=await fetch("data.json?t="+Date.now()); DATA=await res.json();
+  }catch(e){ DATA=window.SITE_DATA||null; }
+  if(!DATA){ document.getElementById("body").innerHTML='<p class="err">データがありません。fetch_data.py を実行してください。</p>'; return; }
+  document.getElementById("updated").textContent=DATA.updated+" 更新";
+  if(DATA.fx) document.getElementById("fx").textContent=
+    `為替 USD/JPY ${DATA.fx.usdjpy?DATA.fx.usdjpy.toFixed(1):"—"} ・ USD/KRW ${DATA.fx.usdkrw?Math.round(DATA.fx.usdkrw):"—"}`;
+  summary(); buildNav(); render();
+}
+load();
+</script>
+</body></html>
